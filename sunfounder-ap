@@ -13,6 +13,7 @@ fi
 CONFIG_FILE="/etc/sunfounder-ap.conf"
 DEFAULT_SSID="SunFounder_RPi_AP"
 DEFAULT_PASSWORD="12345678"
+DEFAULT_BAND="2.4g"
 
 source "$CONFIG_FILE"
 if [ -z "$SUNFOUNDER_SSID" ]; then
@@ -20,6 +21,9 @@ if [ -z "$SUNFOUNDER_SSID" ]; then
 fi
 if [ -z "$SUNFOUNDER_PASSWORD" ]; then
     SUNFOUNDER_PASSWORD="$DEFAULT_PASSWORD"
+fi
+if [ -z "$SUNFOUNDER_BAND" ]; then
+    SUNFOUNDER_BAND="$DEFAULT_BAND"
 fi
 
 # check if argument is start or stop
@@ -49,10 +53,21 @@ if [ "$1" = "start" ]; then
             exit 1
         fi
 
+        # Check if band is set
+        if [ -z "$SUNFOUNDER_BAND" ]; then
+            SUNFOUNDER_BAND="$DEFAULT_BAND"
+        fi
+
+        if [ "$SUNFOUNDER_BAND" -eq "2.4g" ]; then
+            BAND="bg"
+        elif [ "$SUNFOUNDER_BAND" -eq "5g" ]; then
+            BAND="a"
+        fi
+
         # Start SunFounder AP
         echo "Starting SunFounder AP with SSID: $SUNFOUNDER_SSID and Password: $SUNFOUNDER_PASSWORD"
         nmcli radio wifi on
-        nmcli device wifi hotspot ssid $SUNFOUNDER_SSID password $SUNFOUNDER_PASSWORD
+        nmcli device wifi hotspot ssid $SUNFOUNDER_SSID password $SUNFOUNDER_PASSWORD .band $BAND
 
     else
         echo "Warning: Configuration File not found: $CONFIG_FILE"
@@ -69,6 +84,7 @@ elif [[ "$1" == "set" ]]; then
     echo "Setting SunFounder AP SSID and Password"
     read -p "Enter SSID [$SUNFOUNDER_SSID]: " SSID
     read -p "Enter Password [$SUNFOUNDER_PASSWORD]: " PASSWORD
+    read -p "Enter Band [$SUNFOUNDER_BAND]: " BAND
     # Check if SSID and Password are empty
     if [ -z "$SSID" ]; then
         SSID="$SUNFOUNDER_SSID"
@@ -76,8 +92,12 @@ elif [[ "$1" == "set" ]]; then
     if [ -z "$PASSWORD" ]; then
         PASSWORD="$SUNFOUNDER_PASSWORD"
     fi
+    if [ -z "$BAND" ]; then
+        BAND="$SUNFOUNDER_BAND"
+    fi
     echo "SUNFOUNDER_SSID=$SSID" > "$CONFIG_FILE"
     echo "SUNFOUNDER_PASSWORD=$PASSWORD" >> "$CONFIG_FILE"
+    echo "SUNFOUNDER_BAND=$BAND" >> "$CONFIG_FILE"
     echo "SunFounder AP SSID and Password set successfully."
 else
     # Invalid argument

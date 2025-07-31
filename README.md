@@ -17,6 +17,7 @@ It will install a service `sunfounder-ap.service` that will start the access poi
 ```
 Enter SSID [SunFounder_RPi_AP]: 
 Enter Password [12345678]: 
+Enter Band [2.4g]:
 ```
 
 Enter the SSID and password, or enter to use the default. Then the access point will be started.
