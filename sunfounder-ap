@@ -109,9 +109,9 @@ if [ "$1" = "start" ]; then
 elif [[ "$1" == "stop" ]]; then
     # Stop SunFounder AP
     echo "Stopping SunFounder AP"
-    nmcli connection delete $AP_CONFIG_NAME || true
-    nmcli device disconnect wlan0 || true
-    nmcli device up wlan0 || true
+    nmcli connection delete $AP_CONFIG_NAME 2>/dev/null || true
+    nmcli device disconnect wlan0 2>/dev/null || true
+    nmcli device up wlan0 2>/dev/null || true
 elif [[ "$1" == "set" ]]; then
     # Set SunFounder AP SSID and Password
     echo "Setting SunFounder AP SSID and Password"
