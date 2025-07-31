@@ -1,0 +1,87 @@
+#!/bin/bash
+
+set -euo pipefail
+trap 'echo "Error occurred. Exiting..." >&2; exit 1' ERR
+
+# Check if user is root
+if [ "$EUID" -ne 0 ]
+  then echo "Please run as root"
+  exit 1
+fi
+
+# Configuration File
+CONFIG_FILE="/etc/sunfounder-ap.conf"
+DEFAULT_SSID="SunFounder_RPi_AP"
+DEFAULT_PASSWORD="12345678"
+
+source "$CONFIG_FILE"
+if [ -z "$SUNFOUNDER_SSID" ]; then
+    SUNFOUNDER_SSID="$DEFAULT_SSID"
+fi
+if [ -z "$SUNFOUNDER_PASSWORD" ]; then
+    SUNFOUNDER_PASSWORD="$DEFAULT_PASSWORD"
+fi
+
+# check if argument is start or stop
+if [ "$1" = "start" ]; then
+
+    # Check if Configuration File exists
+    if [ -f "$CONFIG_FILE" ]; then
+
+        # Read Configuration File
+        source "$CONFIG_FILE"
+
+        # Check if SunFounder AP SSID and Password are set
+        if [ -z "$SUNFOUNDER_SSID" ] || [ -z "$SUNFOUNDER_PASSWORD" ]; then
+            echo "Warning: SunFounder AP SSID or Password not set in Configuration File: $CONFIG_FILE"
+            exit 0
+        fi
+
+        # Check if SSID and Password are too long
+        if [ ${#SUNFOUNDER_SSID} -gt 32 ] || [ ${#SUNFOUNDER_PASSWORD} -gt 64 ]; then
+            echo "SSID or Password is too long. Maximum length is 32 for SSID and 64 for Password."
+            exit 1
+        fi
+
+        # Check if SSID and Password are too short
+        if [ ${#SUNFOUNDER_SSID} -lt 1 ] || [ ${#SUNFOUNDER_PASSWORD} -lt 8 ]; then
+            echo "SSID or Password is too short. Minimum length is 1 for SSID and 8 for Password."
+            exit 1
+        fi
+
+        # Start SunFounder AP
+        echo "Starting SunFounder AP with SSID: $SUNFOUNDER_SSID and Password: $SUNFOUNDER_PASSWORD"
+        nmcli radio wifi on
+        nmcli device wifi hotspot ssid $SUNFOUNDER_SSID password $SUNFOUNDER_PASSWORD
+
+    else
+        echo "Warning: Configuration File not found: $CONFIG_FILE"
+        exit 0
+    fi
+
+elif [[ "$1" == "stop" ]]; then
+    # Stop SunFounder AP
+    echo "Stopping SunFounder AP"
+    nmcli device disconnect wlan0 || true
+    nmcli device up wlan0 || true
+elif [[ "$1" == "set" ]]; then
+    # Set SunFounder AP SSID and Password
+    echo "Setting SunFounder AP SSID and Password"
+    read -p "Enter SSID [$SUNFOUNDER_SSID]: " SSID
+    read -p "Enter Password [$SUNFOUNDER_PASSWORD]: " PASSWORD
+    # Check if SSID and Password are empty
+    if [ -z "$SSID" ]; then
+        SSID="$SUNFOUNDER_SSID"
+    fi
+    if [ -z "$PASSWORD" ]; then
+        PASSWORD="$SUNFOUNDER_PASSWORD"
+    fi
+    echo "SUNFOUNDER_SSID=$SSID" > "$CONFIG_FILE"
+    echo "SUNFOUNDER_PASSWORD=$PASSWORD" >> "$CONFIG_FILE"
+    echo "SunFounder AP SSID and Password set successfully."
+else
+    # Invalid argument
+    echo "Invalid argument. Usage: sunfounder-ap start|stop|set"
+    exit 1
+fi
+

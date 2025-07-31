@@ -1,0 +1,14 @@
+# https://www.freedesktop.org/software/systemd/man/systemd.service.html
+[Unit]
+Description=SunFounder AP Service
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /usr/local/bin/sunfounder-ap start
+ExecStop=/bin/bash /usr/local/bin/sunfounder-ap stop
+User=root
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
