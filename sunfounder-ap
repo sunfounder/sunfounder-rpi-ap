@@ -1,8 +1,5 @@
 #!/bin/bash
 
-set -euo pipefail
-trap 'echo "Error occurred. Exiting..." >&2; exit 1' ERR
-
 # Check if user is root
 if [ "$EUID" -ne 0 ]
   then echo "Please run as root"
@@ -11,19 +8,51 @@ fi
 
 # Configuration File
 CONFIG_FILE="/etc/sunfounder-ap.conf"
+AP_CONFIG_NAME="SUNFOUNDER_AP"
 DEFAULT_SSID="SunFounder_RPi_AP"
 DEFAULT_PASSWORD="12345678"
 DEFAULT_BAND="2.4g"
+DEFAULT_CHANNEL_2_4G="6"
+DEFAULT_CHANNEL_5G="36"
 
-source "$CONFIG_FILE"
-if [ -z "$SUNFOUNDER_SSID" ]; then
+AVAILABLE_BANDS="2.4g/5g"
+AVAILABLE_CHANNELS_2_4G="1 2 3 4 5 6 7 8 9 10 11 12 13"
+AVAILABLE_CHANNELS_5G="34 36 38 40 42 44 48 52 56 60 64 100 104 108 112 116 120 124 128 132 136 140 144 149 153 157 161 165"
+
+
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+    if [ -z "$SUNFOUNDER_SSID" ]; then
+        SUNFOUNDER_SSID="$DEFAULT_SSID"
+    fi
+    if [ -z "$SUNFOUNDER_PASSWORD" ]; then
+        SUNFOUNDER_PASSWORD="$DEFAULT_PASSWORD"
+    fi
+    if [ -z "$SUNFOUNDER_BAND" ]; then
+        SUNFOUNDER_BAND="$DEFAULT_BAND"
+    fi
+    if [ -z "$SUNFOUNDER_CHANNEL" ]; then
+        if [ "$SUNFOUNDER_BAND" = "2.4g" ]; then
+            SUNFOUNDER_CHANNEL="$DEFAULT_CHANNEL_2_4G"
+        elif [ "$SUNFOUNDER_BAND" = "5g" ]; then
+            SUNFOUNDER_CHANNEL="$DEFAULT_CHANNEL_5G"
+        fi
+    fi
+else
     SUNFOUNDER_SSID="$DEFAULT_SSID"
-fi
-if [ -z "$SUNFOUNDER_PASSWORD" ]; then
     SUNFOUNDER_PASSWORD="$DEFAULT_PASSWORD"
-fi
-if [ -z "$SUNFOUNDER_BAND" ]; then
     SUNFOUNDER_BAND="$DEFAULT_BAND"
+    if [ "$SUNFOUNDER_BAND" = "2.4g" ]; then
+        SUNFOUNDER_CHANNEL="$DEFAULT_CHANNEL_2_4G"
+    elif [ "$SUNFOUNDER_BAND" = "5g" ]; then
+        SUNFOUNDER_CHANNEL="$DEFAULT_CHANNEL_5G"
+    fi
+fi
+
+# Check if argument is unbound
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 {start|stop|set}"
+    exit 1
 fi
 
 # check if argument is start or stop
@@ -53,21 +82,24 @@ if [ "$1" = "start" ]; then
             exit 1
         fi
 
-        # Check if band is set
-        if [ -z "$SUNFOUNDER_BAND" ]; then
-            SUNFOUNDER_BAND="$DEFAULT_BAND"
+        if [ "$SUNFOUNDER_BAND" = "2.4g" ]; then
+            BAND="bg"
+        elif [ "$SUNFOUNDER_BAND" = "5g" ]; then
+            BAND="a"
         fi
 
-        if [ "$SUNFOUNDER_BAND" -eq "2.4g" ]; then
-            BAND="bg"
-        elif [ "$SUNFOUNDER_BAND" -eq "5g" ]; then
-            BAND="a"
+        # Check if AP is set, if so, delete it
+        if nmcli connection show | grep -q "AP_CONFIG_NAME"; then
+            echo "Deleting existing SunFounder AP"
+            nmcli connection delete AP_CONFIG_NAME
         fi
 
         # Start SunFounder AP
         echo "Starting SunFounder AP with SSID: $SUNFOUNDER_SSID and Password: $SUNFOUNDER_PASSWORD"
         nmcli radio wifi on
-        nmcli device wifi hotspot ssid $SUNFOUNDER_SSID password $SUNFOUNDER_PASSWORD .band $BAND
+        cmd="nmcli device wifi hotspot con-name AP_CONFIG_NAME ssid $SUNFOUNDER_SSID password $SUNFOUNDER_PASSWORD band $BAND channel $SUNFOUNDER_CHANNEL"
+        echo $cmd
+        $cmd
 
     else
         echo "Warning: Configuration File not found: $CONFIG_FILE"
@@ -77,24 +109,40 @@ if [ "$1" = "start" ]; then
 elif [[ "$1" == "stop" ]]; then
     # Stop SunFounder AP
     echo "Stopping SunFounder AP"
+    nmcli connection delete AP_CONFIG_NAME || true
     nmcli device disconnect wlan0 || true
     nmcli device up wlan0 || true
 elif [[ "$1" == "set" ]]; then
     # Set SunFounder AP SSID and Password
     echo "Setting SunFounder AP SSID and Password"
     read -p "Enter SSID [$SUNFOUNDER_SSID]: " SSID
-    read -p "Enter Password [$SUNFOUNDER_PASSWORD]: " PASSWORD
-    read -p "Enter Band [$SUNFOUNDER_BAND]: " BAND
-    # Check if SSID and Password are empty
     if [ -z "$SSID" ]; then
         SSID="$SUNFOUNDER_SSID"
     fi
+    read -p "Enter Password [$SUNFOUNDER_PASSWORD]: " PASSWORD
     if [ -z "$PASSWORD" ]; then
         PASSWORD="$SUNFOUNDER_PASSWORD"
     fi
+    read -p "Enter Band ($AVAILABLE_BANDS) [$SUNFOUNDER_BAND]: " BAND
     if [ -z "$BAND" ]; then
         BAND="$SUNFOUNDER_BAND"
     fi
+    if [ "$BAND" = "2.4g" ]; then
+        read -p "Enter Channel ($AVAILABLE_CHANNELS_2_4G) [$DEFAULT_CHANNEL_2_4G]: " CHANNEL
+    elif [ "$BAND" = "5g" ]; then
+        read -p "Enter Channel ($AVAILABLE_CHANNELS_5G) [$DEFAULT_CHANNEL_5G]: " CHANNEL
+    else
+        echo "Invalid Band: [$BAND]. Please enter 2.4g or 5g."
+        exit 1
+    fi
+    if [ -z "$CHANNEL" ]; then
+        if [ "$BAND" = "2.4g" ]; then
+            CHANNEL="$DEFAULT_CHANNEL_2_4G"
+        elif [ "$BAND" = "5g" ]; then
+            CHANNEL="$DEFAULT_CHANNEL_5G"
+        fi
+    fi
+
     echo "SUNFOUNDER_SSID=$SSID" > "$CONFIG_FILE"
     echo "SUNFOUNDER_PASSWORD=$PASSWORD" >> "$CONFIG_FILE"
     echo "SUNFOUNDER_BAND=$BAND" >> "$CONFIG_FILE"

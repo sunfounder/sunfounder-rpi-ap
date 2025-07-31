@@ -4,11 +4,10 @@ Description=SunFounder AP Service
 After=network.target
 
 [Service]
-Type=oneshot
+Type=one-shot
 ExecStart=/bin/bash /usr/local/bin/sunfounder-ap start
 ExecStop=/bin/bash /usr/local/bin/sunfounder-ap stop
 User=root
-Restart=always
 
 [Install]
 WantedBy=multi-user.target
