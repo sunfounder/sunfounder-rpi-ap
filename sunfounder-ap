@@ -89,15 +89,15 @@ if [ "$1" = "start" ]; then
         fi
 
         # Check if AP is set, if so, delete it
-        if nmcli connection show | grep -q "AP_CONFIG_NAME"; then
+        if nmcli connection show | grep -q "$AP_CONFIG_NAME"; then
             echo "Deleting existing SunFounder AP"
-            nmcli connection delete AP_CONFIG_NAME
+            nmcli connection delete $AP_CONFIG_NAME
         fi
 
         # Start SunFounder AP
         echo "Starting SunFounder AP with SSID: $SUNFOUNDER_SSID and Password: $SUNFOUNDER_PASSWORD"
         nmcli radio wifi on
-        cmd="nmcli device wifi hotspot con-name AP_CONFIG_NAME ssid $SUNFOUNDER_SSID password $SUNFOUNDER_PASSWORD band $BAND channel $SUNFOUNDER_CHANNEL"
+        cmd="nmcli device wifi hotspot con-name $AP_CONFIG_NAME ssid $SUNFOUNDER_SSID password $SUNFOUNDER_PASSWORD band $BAND channel $SUNFOUNDER_CHANNEL"
         echo $cmd
         $cmd
 
@@ -109,7 +109,7 @@ if [ "$1" = "start" ]; then
 elif [[ "$1" == "stop" ]]; then
     # Stop SunFounder AP
     echo "Stopping SunFounder AP"
-    nmcli connection delete AP_CONFIG_NAME || true
+    nmcli connection delete $AP_CONFIG_NAME || true
     nmcli device disconnect wlan0 || true
     nmcli device up wlan0 || true
 elif [[ "$1" == "set" ]]; then
